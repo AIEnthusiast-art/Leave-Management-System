@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leave History — LeaveFlow</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="nav-root"></div>
+
+  <div class="page-header container">
+    <h1 class="page-title">Leave History</h1>
+    <p class="page-sub">Complete record of all leave applications and their current status.</p>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <!-- Filters -->
+      <div class="filter-bar">
+        <span class="filter-label">Filter:</span>
+        <select id="f-dept">
+          <option value="">All Departments</option>
+          <option>Engineering</option>
+          <option>Marketing</option>
+          <option>Finance</option>
+          <option>HR</option>
+          <option>Operations</option>
+          <option>Sales</option>
+        </select>
+        <select id="f-type">
+          <option value="">All Types</option>
+          <option>Casual</option>
+          <option>Sick</option>
+          <option>Annual</option>
+        </select>
+        <select id="f-status">
+          <option value="">All Statuses</option>
+          <option>Pending</option>
+          <option>Approved</option>
+          <option>Rejected</option>
+        </select>
+        <input type="text" id="f-search" placeholder="Search by name…" style="min-width:160px;">
+        <button class="btn btn-outline btn-sm" onclick="clearFilters()">Clear</button>
+        <span class="ml-auto text-sm text-muted" id="count-label"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Employee Name</th>
+              <th>Emp ID</th>
+              <th>Department</th>
+              <th>Leave Type</th>
+              <th>From</th>
+              <th>To</th>
+              <th>Days</th>
+              <th>Reason</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="history-body"></tbody>
+        </table>
+      </div>
+      <div id="empty-state" class="empty-state" style="display:none;">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">No records found</div>
+        <p class="text-sm">Try adjusting your filters.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="nav.js"></script>
+  <script>
+    renderNav('history');
+    const fmt = d => new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    const days = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000) + 1;
+
+    function render() {
+      let leaves = getLeaves();
+      const dept   = document.getElementById('f-dept').value;
+      const type   = document.getElementById('f-type').value;
+      const status = document.getElementById('f-status').value;
+      const search = document.getElementById('f-search').value.toLowerCase();
+
+      if (dept)   leaves = leaves.filter(l => l.dept === dept);
+      if (type)   leaves = leaves.filter(l => l.type === type);
+      if (status) leaves = leaves.filter(l => l.status === status);
+      if (search) leaves = leaves.filter(l => l.empName.toLowerCase().includes(search));
+
+      document.getElementById('count-label').textContent = `${leaves.length} record${leaves.length !== 1 ? 's' : ''}`;
+
+      const body = document.getElementById('history-body');
+      const empty = document.getElementById('empty-state');
+      if (!leaves.length) {
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      body.innerHTML = leaves.map((l, i) => `
+        <tr>
+          <td class="text-sm text-muted">${i + 1}</td>
+          <td class="td-name">${l.empName}</td>
+          <td class="text-sm text-muted">${l.empId}</td>
+          <td>${l.dept}</td>
+          <td><span class="badge badge-type">${l.type}</span></td>
+          <td>${fmt(l.from)}</td>
+          <td>${fmt(l.to)}</td>
+          <td style="text-align:center"><strong>${days(l.from, l.to)}</strong></td>
+          <td style="max-width:200px; white-space:normal; font-size:.82rem; color:var(--ink-3)">${l.reason}</td>
+          <td><span class="badge badge-${l.status.toLowerCase()}">${l.status}</span></td>
+        </tr>`).join('');
+    }
+
+    function clearFilters() {
+      ['f-dept','f-type','f-status','f-search'].forEach(id => {
+        const el = document.getElementById(id);
+        el.value = '';
+      });
+      render();
+    }
+
+    ['f-dept','f-type','f-status','f-search'].forEach(id =>
+      document.getElementById(id).addEventListener('input', render));
+
+    render();
+  </script>
+</body>
+</html>

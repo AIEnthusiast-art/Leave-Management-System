@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apply Leave — LeaveFlow</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .apply-wrap {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .form-section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: .78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--ink-3);
+      margin-bottom: 1rem;
+      padding-bottom: .5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .success-banner {
+      display: none;
+      background: var(--success-lt);
+      border: 1.5px solid var(--success);
+      border-radius: var(--radius-sm);
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      color: var(--success);
+      font-weight: 600;
+      align-items: center;
+      gap: .6rem;
+    }
+    .success-banner.show { display: flex; }
+    .day-count {
+      display: inline-block;
+      background: var(--accent-lt);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: .8rem;
+      padding: .2rem .6rem;
+      border-radius: 6px;
+      margin-left: .5rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="nav-root"></div>
+
+  <div class="page-header container">
+    <h1 class="page-title">Apply for Leave</h1>
+    <p class="page-sub">Fill in the form below to submit a new leave request.</p>
+  </div>
+
+  <div class="container">
+    <div class="apply-wrap">
+      <div id="success-banner" class="success-banner">
+        ✅ Leave request submitted successfully! It has been forwarded to your department head.
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Leave Request Form</span>
+          <span class="text-sm text-muted" id="day-count-label"></span>
+        </div>
+        <div class="card-body">
+          <form id="leave-form" novalidate>
+
+            <p class="form-section-title">Employee Information</p>
+            <div class="form-grid mb-2">
+              <div class="form-group">
+                <label class="form-label" for="empId">Employee ID *</label>
+                <input type="text" id="empId" class="form-control" placeholder="e.g. EMP201" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="empName">Full Name *</label>
+                <input type="text" id="empName" class="form-control" placeholder="Your full name" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="dept">Department *</label>
+                <select id="dept" class="form-control" required>
+                  <option value="">— Select department —</option>
+                  <option>Engineering</option>
+                  <option>Marketing</option>
+                  <option>Finance</option>
+                  <option>HR</option>
+                  <option>Operations</option>
+                  <option>Sales</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="leaveType">Leave Type *</label>
+                <select id="leaveType" class="form-control" required>
+                  <option value="">— Select type —</option>
+                  <option>Casual</option>
+                  <option>Sick</option>
+                  <option>Annual</option>
+                </select>
+              </div>
+            </div>
+
+            <p class="form-section-title">Leave Period</p>
+            <div class="form-grid mb-2">
+              <div class="form-group">
+                <label class="form-label" for="fromDate">From Date *</label>
+                <input type="date" id="fromDate" class="form-control" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="toDate">To Date *</label>
+                <input type="date" id="toDate" class="form-control" required>
+              </div>
+            </div>
+
+            <p class="form-section-title">Reason</p>
+            <div class="form-grid">
+              <div class="form-group full">
+                <label class="form-label" for="reason">Reason for Leave *</label>
+                <textarea id="reason" class="form-control" placeholder="Briefly describe the reason for your leave request…" required></textarea>
+                <span class="form-hint">Keep it concise — this goes to your department head for review.</span>
+              </div>
+            </div>
+
+            <div class="flex mt-3" style="gap:1rem; flex-wrap:wrap;">
+              <button type="submit" class="btn btn-primary" id="submit-btn">
+                ✦ Submit Leave Request
+              </button>
+              <button type="button" class="btn btn-outline" onclick="document.getElementById('leave-form').reset(); updateDayCount();">
+                Reset
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Leave balance hint -->
+      <div class="card mt-2">
+        <div class="card-header"><span class="card-title">Leave Balance (2025)</span></div>
+        <div class="card-body">
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; text-align:center;">
+            <div>
+              <div style="font-family:'Syne',sans-serif; font-size:1.8rem; font-weight:800; color:var(--accent)">8</div>
+              <div class="text-sm text-muted">Casual remaining</div>
+            </div>
+            <div>
+              <div style="font-family:'Syne',sans-serif; font-size:1.8rem; font-weight:800; color:var(--success)">10</div>
+              <div class="text-sm text-muted">Sick remaining</div>
+            </div>
+            <div>
+              <div style="font-family:'Syne',sans-serif; font-size:1.8rem; font-weight:800; color:var(--warn)">14</div>
+              <div class="text-sm text-muted">Annual remaining</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="nav.js"></script>
+  <script>
+    renderNav('apply');
+
+    // Set min date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fromDate').min = today;
+    document.getElementById('toDate').min = today;
+
+    function updateDayCount() {
+      const from = document.getElementById('fromDate').value;
+      const to   = document.getElementById('toDate').value;
+      const lbl  = document.getElementById('day-count-label');
+      if (from && to && to >= from) {
+        const diff = Math.round((new Date(to) - new Date(from)) / 86400000) + 1;
+        lbl.innerHTML = `<span class="day-count">${diff} day${diff !== 1 ? 's' : ''}</span>`;
+      } else {
+        lbl.innerHTML = '';
+      }
+    }
+
+    document.getElementById('fromDate').addEventListener('change', () => {
+      document.getElementById('toDate').min = document.getElementById('fromDate').value;
+      updateDayCount();
+    });
+    document.getElementById('toDate').addEventListener('change', updateDayCount);
+
+    document.getElementById('leave-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const empId    = document.getElementById('empId').value.trim();
+      const empName  = document.getElementById('empName').value.trim();
+      const dept     = document.getElementById('dept').value;
+      const type     = document.getElementById('leaveType').value;
+      const from     = document.getElementById('fromDate').value;
+      const to       = document.getElementById('toDate').value;
+      const reason   = document.getElementById('reason').value.trim();
+
+      if (!empId || !empName || !dept || !type || !from || !to || !reason) {
+        showToast('Please fill in all required fields.', 'error');
+        return;
+      }
+      if (to < from) {
+        showToast('End date cannot be before start date.', 'error');
+        return;
+      }
+
+      addLeave({ empId, empName, dept, type, from, to, reason });
+      document.getElementById('success-banner').classList.add('show');
+      document.getElementById('leave-form').reset();
+      updateDayCount();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      showToast('Leave submitted successfully!', 'success');
+    });
+  </script>
+</body>
+</html>

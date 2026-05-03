@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — LeaveFlow</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="nav-root"></div>
+
+  <div class="page-header container">
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-sub">Overview of all leave activity across the organization.</p>
+  </div>
+
+  <div class="container">
+    <!-- Stat Cards -->
+    <div class="stats-grid" id="stats-grid"></div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Leaves per Month</span>
+          <span class="text-sm text-muted">2025</span>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="monthChart"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Leave Type Split</span>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="typeChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Leaves table -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Recent Applications</span>
+        <a href="history.html" class="btn btn-outline btn-sm">View all →</a>
+      </div>
+      <div class="table-wrap">
+        <table id="recent-table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Department</th>
+              <th>Type</th>
+              <th>From</th>
+              <th>To</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="recent-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="data.js"></script>
+  <script src="nav.js"></script>
+  <script>
+    renderNav('dashboard');
+
+    // ── Stats ──
+    const stats = getStats();
+    const cards = [
+      { label: 'Total Employees', value: stats.total,    icon: '👥', cls: 's-purple' },
+      { label: 'Leaves Applied',  value: stats.applied,  icon: '📋', cls: 's-purple' },
+      { label: 'Pending Approval',value: stats.pending,  icon: '⏳', cls: 's-amber'  },
+      { label: 'Approved',        value: stats.approved, icon: '✅', cls: 's-green'  },
+      { label: 'Rejected',        value: stats.rejected, icon: '✗',  cls: 's-red'   },
+    ];
+    document.getElementById('stats-grid').innerHTML = cards.map(c => `
+      <div class="stat-card ${c.cls}">
+        <div class="stat-icon">${c.icon}</div>
+        <div class="stat-value">${c.value}</div>
+        <div class="stat-label">${c.label}</div>
+      </div>`).join('');
+
+    // ── Month chart ──
+    const monthData = getLeavesPerMonth();
+    new Chart(document.getElementById('monthChart'), {
+      type: 'bar',
+      data: {
+        labels: monthData.labels,
+        datasets: [{
+          label: 'Leaves',
+          data: monthData.data,
+          backgroundColor: '#ede9fe',
+          borderColor: '#4f46e5',
+          borderWidth: 2,
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f0f0f5' } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+
+    // ── Type doughnut ──
+    const typeData = getLeaveTypeDistribution();
+    new Chart(document.getElementById('typeChart'), {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(typeData),
+        datasets: [{
+          data: Object.values(typeData),
+          backgroundColor: ['#ede9fe', '#dcfce7', '#fef3c7'],
+          borderColor:     ['#4f46e5', '#16a34a', '#d97706'],
+          borderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { padding: 16, font: { family: 'DM Sans', size: 13 } }
+          }
+        }
+      }
+    });
+
+    // ── Recent table ──
+    const leaves = getLeaves().slice(-6).reverse();
+    const fmt = d => new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+    document.getElementById('recent-body').innerHTML = leaves.map(l => `
+      <tr>
+        <td class="td-name">${l.empName}</td>
+        <td>${l.dept}</td>
+        <td><span class="badge badge-type">${l.type}</span></td>
+        <td>${fmt(l.from)}</td>
+        <td>${fmt(l.to)}</td>
+        <td><span class="badge badge-${l.status.toLowerCase()}">${l.status}</span></td>
+      </tr>`).join('');
+  </script>
+</body>
+</html>

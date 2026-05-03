@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HR Admin — LeaveFlow</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .hr-note {
+      background: var(--danger-lt);
+      border-left: 4px solid var(--danger);
+      border-radius: var(--radius-sm);
+      padding: .9rem 1.1rem;
+      font-size: .875rem;
+      color: var(--danger);
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+    }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div id="nav-root"></div>
+
+  <div class="page-header container">
+    <div class="flex">
+      <div>
+        <h1 class="page-title">HR Admin Panel</h1>
+        <p class="page-sub">Final approval stage — review dept-approved leaves and issue HR decisions.</p>
+      </div>
+      <span class="role-tag role-hr ml-auto">● HR Admin View</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="hr-note">
+      🔐 This panel is restricted to HR personnel. Actions here are final and update the employee record.
+    </div>
+
+    <!-- Stat cards -->
+    <div class="stats-grid" id="hr-stats"></div>
+
+    <div class="two-col mb-2">
+      <!-- Awaiting HR (dept-approved, status still Pending) -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Awaiting HR Decision</span>
+          <span class="text-sm text-muted" id="await-count"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Type</th>
+                <th>Days</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="await-body"></tbody>
+          </table>
+        </div>
+        <div id="await-empty" class="empty-state" style="display:none;">
+          <div class="empty-icon">🎉</div>
+          <div class="empty-title">All clear!</div>
+          <p class="text-sm">Nothing pending HR review.</p>
+        </div>
+      </div>
+
+      <!-- Dept-approved queue history -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">HR Decision Log</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Type</th>
+                <th>Dates</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="log-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Full leave report -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Full Leave Report</span>
+        <div class="flex" style="gap:.5rem;">
+          <select id="f-status" class="form-control" style="width:auto; padding:.35rem .7rem; font-size:.85rem;">
+            <option value="">All Statuses</option>
+            <option>Pending</option>
+            <option>Approved</option>
+            <option>Rejected</option>
+          </select>
+          <select id="f-dept" class="form-control" style="width:auto; padding:.35rem .7rem; font-size:.85rem;">
+            <option value="">All Departments</option>
+            <option>Engineering</option>
+            <option>Marketing</option>
+            <option>Finance</option>
+            <option>HR</option>
+            <option>Operations</option>
+            <option>Sales</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="resetData(); renderAll(); showToast('Data reset to defaults.','info');">
+            Reset Data
+          </button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Employee</th>
+              <th>Dept.</th>
+              <th>Type</th>
+              <th>From</th>
+              <th>To</th>
+              <th>Days</th>
+              <th>Dept. ✓</th>
+              <th>HR Status</th>
+            </tr>
+          </thead>
+          <tbody id="full-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="nav.js"></script>
+  <script>
+    renderNav('hr');
+    const fmt  = d => new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+    const days = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000) + 1;
+
+    function renderStats() {
+      const leaves = getLeaves();
+      const total    = 112;
+      const applied  = leaves.length;
+      const pending  = leaves.filter(l => l.status === 'Pending').length;
+      const approved = leaves.filter(l => l.status === 'Approved').length;
+      const rejected = leaves.filter(l => l.status === 'Rejected').length;
+      document.getElementById('hr-stats').innerHTML = `
+        <div class="stat-card s-purple"><div class="stat-icon">👥</div><div class="stat-value">${total}</div><div class="stat-label">Employees</div></div>
+        <div class="stat-card s-purple"><div class="stat-icon">📋</div><div class="stat-value">${applied}</div><div class="stat-label">Applied</div></div>
+        <div class="stat-card s-amber"> <div class="stat-icon">⏳</div><div class="stat-value">${pending}</div><div class="stat-label">Pending</div></div>
+        <div class="stat-card s-green"> <div class="stat-icon">✅</div><div class="stat-value">${approved}</div><div class="stat-label">Approved</div></div>
+        <div class="stat-card s-red">   <div class="stat-icon">✗</div><div class="stat-value">${rejected}</div><div class="stat-label">Rejected</div></div>`;
+    }
+
+    function renderAwait() {
+      const awaiting = getLeaves().filter(l => l.deptApproved && l.status === 'Pending');
+      const body  = document.getElementById('await-body');
+      const empty = document.getElementById('await-empty');
+      document.getElementById('await-count').textContent = `${awaiting.length} pending`;
+      if (!awaiting.length) { body.innerHTML = ''; empty.style.display = 'block'; return; }
+      empty.style.display = 'none';
+      body.innerHTML = awaiting.map(l => `
+        <tr>
+          <td>
+            <div class="td-name">${l.empName}</div>
+            <div class="text-sm text-muted">${l.dept}</div>
+          </td>
+          <td><span class="badge badge-type">${l.type}</span></td>
+          <td style="text-align:center"><strong>${days(l.from,l.to)}</strong></td>
+          <td>
+            <div class="btn-group">
+              <button class="btn btn-success btn-sm" onclick="hrAct('${l.id}','Approved')">✓</button>
+              <button class="btn btn-danger  btn-sm" onclick="hrAct('${l.id}','Rejected')">✗</button>
+            </div>
+          </td>
+        </tr>`).join('');
+    }
+
+    function renderLog() {
+      const done = getLeaves().filter(l => !l.deptApproved || l.status !== 'Pending').slice(-6).reverse();
+      document.getElementById('log-body').innerHTML = done.map(l => `
+        <tr>
+          <td class="td-name">${l.empName}</td>
+          <td><span class="badge badge-type">${l.type}</span></td>
+          <td class="text-sm">${fmt(l.from)} – ${fmt(l.to)}</td>
+          <td><span class="badge badge-${l.status.toLowerCase()}">${l.status}</span></td>
+        </tr>`).join('') || '<tr><td colspan="4" class="text-muted text-sm" style="padding:1rem 1.5rem">No decisions yet.</td></tr>';
+    }
+
+    function renderFull() {
+      let leaves = getLeaves();
+      const status = document.getElementById('f-status').value;
+      const dept   = document.getElementById('f-dept').value;
+      if (status) leaves = leaves.filter(l => l.status === status);
+      if (dept)   leaves = leaves.filter(l => l.dept   === dept);
+      document.getElementById('full-body').innerHTML = leaves.map(l => `
+        <tr>
+          <td class="text-sm text-muted">${l.id}</td>
+          <td class="td-name">${l.empName}<br><span class="text-sm text-muted">${l.empId}</span></td>
+          <td>${l.dept}</td>
+          <td><span class="badge badge-type">${l.type}</span></td>
+          <td>${fmt(l.from)}</td>
+          <td>${fmt(l.to)}</td>
+          <td style="text-align:center"><strong>${days(l.from,l.to)}</strong></td>
+          <td style="text-align:center">${l.deptApproved
+              ? '<span style="color:var(--success);font-weight:700;">✓</span>'
+              : '<span style="color:var(--ink-3);">–</span>'}</td>
+          <td><span class="badge badge-${l.status.toLowerCase()}">${l.status}</span></td>
+        </tr>`).join('');
+    }
+
+    function renderAll() {
+      renderStats();
+      renderAwait();
+      renderLog();
+      renderFull();
+    }
+
+    function hrAct(id, status) {
+      updateLeaveStatus(id, status, true);
+      showToast(`HR: Leave ${status.toLowerCase()}.`, status === 'Approved' ? 'success' : 'error');
+      renderAll();
+    }
+
+    ['f-status','f-dept'].forEach(id => document.getElementById(id).addEventListener('change', renderFull));
+
+    renderAll();
+  </script>
+</body>
+</html>

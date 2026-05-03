@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dept. Approval — LeaveFlow</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .approval-note {
+      background: var(--warn-lt);
+      border-left: 4px solid var(--warn);
+      border-radius: var(--radius-sm);
+      padding: .9rem 1.1rem;
+      font-size: .875rem;
+      color: var(--warn);
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+    }
+    .action-cell { white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <div id="nav-root"></div>
+
+  <div class="page-header container">
+    <div class="flex">
+      <div>
+        <h1 class="page-title">Department Head Approval</h1>
+        <p class="page-sub">Review and act on pending leave requests from your department.</p>
+      </div>
+      <span class="role-tag role-dept ml-auto">◆ Dept. Head View</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="approval-note">
+      ⚠ Only first-stage approvals happen here. HR will do the final review after your decision.
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats-grid" style="grid-template-columns: repeat(3,1fr); margin-bottom:1.5rem;" id="dept-stats"></div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Pending Leave Requests</span>
+        <div class="flex" style="gap:.5rem;">
+          <select id="f-dept" class="form-control" style="width:auto; padding:.35rem .7rem; font-size:.85rem;">
+            <option value="">All Departments</option>
+            <option>Engineering</option>
+            <option>Marketing</option>
+            <option>Finance</option>
+            <option>HR</option>
+            <option>Operations</option>
+            <option>Sales</option>
+          </select>
+          <span class="text-sm text-muted" id="count-label" style="align-self:center;"></span>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Dept.</th>
+              <th>Type</th>
+              <th>From</th>
+              <th>To</th>
+              <th>Days</th>
+              <th>Reason</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="pending-body"></tbody>
+        </table>
+      </div>
+      <div id="empty-state" class="empty-state" style="display:none;">
+        <div class="empty-icon">🎉</div>
+        <div class="empty-title">No pending requests</div>
+        <p class="text-sm">All leave requests have been reviewed.</p>
+      </div>
+    </div>
+
+    <!-- Recently actioned -->
+    <div class="card mt-2">
+      <div class="card-header">
+        <span class="card-title">Recently Actioned</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Dept.</th>
+              <th>Type</th>
+              <th>Dates</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="actioned-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="nav.js"></script>
+  <script>
+    renderNav('dept');
+    const fmt = d => new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+    const days = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000) + 1;
+
+    function renderStats() {
+      const leaves = getLeaves();
+      const pending  = leaves.filter(l => l.status === 'Pending').length;
+      const approved = leaves.filter(l => l.deptApproved).length;
+      const rejected = leaves.filter(l => l.status === 'Rejected').length;
+      document.getElementById('dept-stats').innerHTML = `
+        <div class="stat-card s-amber">
+          <div class="stat-icon">⏳</div>
+          <div class="stat-value">${pending}</div>
+          <div class="stat-label">Awaiting Review</div>
+        </div>
+        <div class="stat-card s-green">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value">${approved}</div>
+          <div class="stat-label">Dept. Approved</div>
+        </div>
+        <div class="stat-card s-red">
+          <div class="stat-icon">✗</div>
+          <div class="stat-value">${rejected}</div>
+          <div class="stat-label">Rejected</div>
+        </div>`;
+    }
+
+    function render() {
+      const dept = document.getElementById('f-dept').value;
+      let leaves = getLeaves();
+      if (dept) leaves = leaves.filter(l => l.dept === dept);
+
+      const pending  = leaves.filter(l => l.status === 'Pending');
+      const actioned = leaves.filter(l => l.status !== 'Pending').slice(-5).reverse();
+
+      document.getElementById('count-label').textContent = `${pending.length} pending`;
+      const body  = document.getElementById('pending-body');
+      const empty = document.getElementById('empty-state');
+
+      if (!pending.length) {
+        body.innerHTML = '';
+        empty.style.display = 'block';
+      } else {
+        empty.style.display = 'none';
+        body.innerHTML = pending.map(l => `
+          <tr id="row-${l.id}">
+            <td class="td-name">${l.empName}<br><span class="text-sm text-muted">${l.empId}</span></td>
+            <td>${l.dept}</td>
+            <td><span class="badge badge-type">${l.type}</span></td>
+            <td>${fmt(l.from)}</td>
+            <td>${fmt(l.to)}</td>
+            <td style="text-align:center"><strong>${days(l.from, l.to)}</strong></td>
+            <td style="max-width:180px; white-space:normal; font-size:.82rem; color:var(--ink-3)">${l.reason}</td>
+            <td class="action-cell">
+              <div class="btn-group">
+                <button class="btn btn-success btn-sm" onclick="act('${l.id}','Approved',true)">✓ Approve</button>
+                <button class="btn btn-danger  btn-sm" onclick="act('${l.id}','Rejected',false)">✗ Reject</button>
+              </div>
+            </td>
+          </tr>`).join('');
+      }
+
+      document.getElementById('actioned-body').innerHTML = actioned.map(l => `
+        <tr>
+          <td class="td-name">${l.empName}</td>
+          <td>${l.dept}</td>
+          <td><span class="badge badge-type">${l.type}</span></td>
+          <td>${fmt(l.from)} – ${fmt(l.to)}</td>
+          <td><span class="badge badge-${l.status.toLowerCase()}">${l.status}</span></td>
+        </tr>`).join('') || '<tr><td colspan="5" class="text-muted text-sm" style="padding:1rem 1.5rem">No actions yet.</td></tr>';
+    }
+
+    function act(id, status, deptApproved) {
+      updateLeaveStatus(id, status, deptApproved);
+      showToast(`Leave ${status.toLowerCase()} successfully.`, status === 'Approved' ? 'success' : 'error');
+      renderStats();
+      render();
+    }
+
+    document.getElementById('f-dept').addEventListener('change', render);
+    renderStats();
+    render();
+  </script>
+</body>
+</html>
